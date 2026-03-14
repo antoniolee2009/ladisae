@@ -1,0 +1,571 @@
+<script>
+/* ──────────── NAVIGATION ──────────── */
+const pageTitles = {
+  dashboard:'Painel',cases:'Processos',prazos:'Prazos & Audiências',agenda:'Agenda',
+  clientes:'Clientes',assistente:'Assistente IA',redacao:'Redação Jurídica',
+  analise:'Análise & Resumos',argumentos:'Gerador de Argumentos',pesquisa:'Pesquisa Legal',
+  analytics:'Analytics',financeiro:'Financeiro',documentos:'Documentos'
+};
+
+function showPage(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+
+  const page = document.getElementById('page-'+id);
+  if(page) page.classList.add('active');
+
+  const title = document.getElementById('page-title');
+  if(title) title.textContent = pageTitles[id] || id;
+
+  if(el) {
+    el.classList.add('active');
+  } else {
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      if(n.onclick && n.onclick.toString().includes("'" + id + "'")) {
+        n.classList.add('active');
+      }
+    });
+  }
+
+  if(id==='analytics') buildCharts();
+  if(id==='prazos') buildCalendar();
+}
+
+/* ──────────── MODAL ──────────── */
+function openModal(id){
+  const modal = document.getElementById(id);
+  if(modal) modal.classList.add('open');
+}
+
+function closeModal(id){
+  const modal = document.getElementById(id);
+  if(modal) modal.classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{
+    if(e.target===o) o.classList.remove('open');
+  });
+});
+
+/* ──────────── TOAST ──────────── */
+function showToast(msg, type=''){
+  const c = document.getElementById('toasts');
+  if(!c) return;
+
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.innerHTML = (type==='success' ? '✓ ' : type==='error' ? '✕ ' : '') + msg;
+  c.appendChild(t);
+
+  setTimeout(()=>{
+    t.style.opacity='0';
+    t.style.transition='opacity 0.3s';
+    setTimeout(()=>t.remove(),300);
+  }, 3500);
+}
+
+/* ──────────── TOOL SELECTION ──────────── */
+const toolLabels = {
+  peticao:'Petição Inicial',
+  contestacao:'Contestação',
+  recurso:'Recurso / Apelação',
+  contrato:'Contrato',
+  notificacao:'Notificação Extrajudicial',
+  parecer:'Parecer Jurídico',
+  acordo:'Acordo / Transação',
+  habeas:'Habeas Corpus / Mandado de Segurança',
+  embargo:'Embargos'
+};
+
+let currentTool = 'peticao';
+
+function selectTool(el, type){
+  document.querySelectorAll('#page-redacao .tool-card').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
+  currentTool = type;
+  const label = document.getElementById('red-type-label');
+  if(label) label.textContent = toolLabels[type] || type;
+}
+
+const analiseLabels = {
+  resumo_proc:'Resumo de Processo',
+  resumo_doc:'Resumo de Documento',
+  risco:'Análise de Risco',
+  clausulas:'Cláusulas Abusivas'
+};
+
+let currentAnalise = 'resumo_proc';
+
+function selectAnalise(el, type){
+  document.querySelectorAll('#page-analise .tool-card').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
+  currentAnalise = type;
+  const label = document.getElementById('analise-type-label');
+  if(label) label.textContent = analiseLabels[type] || type;
+}
+
+const argLabels = {
+  favoraveis:'Argumentos Favoráveis',
+  contra:'Contra-argumentos',
+  jurisprudencia:'Jurisprudência',
+  preliminares:'Preliminares Processuais'
+};
+
+let currentArg = 'favoraveis';
+
+function selectArg(el, type){
+  document.querySelectorAll('#page-argumentos .tool-card').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
+  currentArg = type;
+  const label = document.getElementById('arg-type-label');
+  if(label) label.textContent = argLabels[type] || type;
+}
+
+const pesquisaLabels = {
+  jurisprudencia_stj:'STJ / STF',
+  legislacao:'Legislação',
+  doutrina:'Doutrina',
+  prazo_prescricao:'Prazos & Prescrição'
+};
+
+let currentPesquisa = 'jurisprudencia_stj';
+
+function selectPesquisa(el, type){
+  document.querySelectorAll('#page-pesquisa .tool-card').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
+  currentPesquisa = type;
+  const label = document.getElementById('pesquisa-type-label');
+  if(label) label.textContent = pesquisaLabels[type] || type;
+}
+
+/* ──────────── IA DEMO (PROTÓTIPO) ──────────── */
+const SYSTEM_JURIDICO = `Você é um advogado sênior altamente qualificado do escritório Ladisael Advocacia, com mais de 20 anos de experiência no direito brasileiro. Seus textos são precisos, formais, técnicos e fundamentados na legislação e jurisprudência vigente. Responda sempre em português, de forma profissional. Máximo 600 palavras por resposta, mas seja completo e útil.`;
+
+function fakeAIResponse(userMessage, outputId=''){
+  const texto = (userMessage || '').toLowerCase();
+
+  if (outputId.includes('red-output-text')) {
+    if (texto.includes('contrato')) {
+      return `MINUTA INICIAL (PROTÓTIPO)
+
+CLÁUSULA 1 – OBJETO
+O presente instrumento tem por objeto disciplinar a relação jurídica entre as partes, nos termos ajustados.
+
+CLÁUSULA 2 – OBRIGAÇÕES
+As partes obrigam-se ao fiel cumprimento das disposições contratuais, observando boa-fé, equilíbrio e função social do contrato.
+
+CLÁUSULA 3 – PRAZO E RESCISÃO
+O prazo de vigência será o ajustado entre as partes, podendo haver rescisão por inadimplemento ou comum acordo.
+
+CLÁUSULA 4 – FORO
+Fica eleito o foro competente para dirimir controvérsias.
+
+⚠️ Conteúdo demonstrativo de protótipo.`;
+    }
+
+    return `EXCELENTÍSSIMO SENHOR DOUTOR JUIZ DE DIREITO
+
+A parte autora, por intermédio de seu advogado, vem respeitosamente à presença de Vossa Excelência apresentar a presente peça processual, com fundamento nos fatos e no direito aplicável.
+
+I – DOS FATOS
+Os fatos narrados indicam possível violação de direito subjetivo da parte requerente.
+
+II – DO DIREITO
+Há plausibilidade jurídica inicial, com necessidade de adequada instrução e fundamentação normativa.
+
+III – DOS PEDIDOS
+a) recebimento da peça;
+b) citação/intimação da parte contrária;
+c) procedência dos pedidos;
+d) demais cominações legais.
+
+⚠️ Modelo gerado em modo demonstração.`;
+  }
+
+  if (outputId.includes('analise-output-text')) {
+    if (texto.includes('contrato') || texto.includes('cláusula') || texto.includes('clausula')) {
+      return `ANÁLISE PRELIMINAR (PROTÓTIPO)
+
+1. Tipo do documento:
+Contrato/Instrumento obrigacional.
+
+2. Pontos de atenção:
+• cláusulas de multa
+• cláusula de rescisão
+• distribuição de responsabilidades
+• foro de eleição
+• prazos e penalidades
+
+3. Riscos identificados:
+• possível desequilíbrio contratual
+• redação ambígua em obrigações
+• sanções potencialmente excessivas
+
+4. Recomendação:
+Revisão jurídica integral antes da assinatura.`;
+    }
+
+    return `RESUMO EXECUTIVO (PROTÓTIPO)
+
+1. Partes envolvidas:
+Identificação pendente de conferência documental.
+
+2. Objeto:
+Há controvérsia jurídica com potencial litigioso.
+
+3. Pontos críticos:
+• cronologia dos fatos
+• provas documentais
+• competência
+• prazo prescricional/decadencial
+
+4. Estratégia inicial:
+Organizar documentos, delimitar tese e avaliar risco processual.`;
+  }
+
+  if (outputId.includes('arg-output-text')) {
+    return `ARGUMENTOS JURÍDICOS (PROTÓTIPO)
+
+1. Boa-fé objetiva e função social da relação jurídica.
+2. Interpretação sistemática da legislação aplicável.
+3. Princípio da proporcionalidade e vedação ao abuso de direito.
+4. Prevalência da prova documental e coerência fática.
+5. Jurisprudência favorável a teses de proteção da parte vulnerável.
+
+⚠️ Resultado demonstrativo para apresentação do sistema.`;
+  }
+
+  if (outputId.includes('pesquisa-output-text')) {
+    return `PESQUISA LEGAL (PROTÓTIPO)
+
+• Jurisprudência: recomenda-se consulta a precedentes dos tribunais superiores sobre o tema.
+• Legislação: identificar artigos específicos do CPC, CC, CDC, CLT ou legislação especial.
+• Doutrina: mapear corrente majoritária e minoritária.
+• Prazos: verificar prescrição, decadência e marcos interruptivos/suspensivos.
+
+⚠️ Este conteúdo é simulado para fins de demonstração visual.`;
+  }
+
+  return `RESULTADO DA ANÁLISE (PROTÓTIPO)
+
+• Foram identificados pontos jurídicos relevantes.
+• Há fundamentos plausíveis para desenvolvimento técnico.
+• Recomenda-se revisão profissional antes de qualquer uso real.
+
+⚠️ Resposta simulada para apresentação do protótipo.`;
+}
+
+async function callAI(systemPrompt, userMessage, outputId) {
+  const el = document.getElementById(outputId);
+  if(!el) return '';
+
+  el.innerHTML = '<div class="thinking"><div class="dots"><span></span><span></span><span></span></div> Analisando com IA jurídica...</div>';
+
+  await new Promise(resolve => setTimeout(resolve, 1200));
+
+  const text = fakeAIResponse(userMessage, outputId);
+  el.textContent = text;
+  return text;
+}
+
+/* ──────────── REDAÇÃO ──────────── */
+async function runRedacao(){
+  const tipo = document.getElementById('red-tipo')?.value || '';
+  const partes = document.getElementById('red-partes')?.value || '';
+  const fatos = document.getElementById('red-fatos')?.value || '';
+  const pedidos = document.getElementById('red-pedidos')?.value || '';
+
+  if(!fatos.trim()){
+    showToast('Descreva os fatos do caso.','error');
+    return;
+  }
+
+  const prompts = {
+    peticao:`Redija uma petição inicial completa. Tipo: ${tipo}. Partes: ${partes}. Fatos: ${fatos}. Pedidos: ${pedidos}.`,
+    contestacao:`Redija uma contestação completa. Tipo: ${tipo}. Partes: ${partes}. Fatos: ${fatos}. Tese defensiva: ${pedidos}.`,
+    recurso:`Redija as razões de recurso/apelação. Ação: ${tipo}. Partes: ${partes}. Fatos: ${fatos}. Fundamentos: ${pedidos}.`,
+    contrato:`Elabore as cláusulas principais do contrato solicitado. Tipo: ${tipo}. Partes: ${partes}. Condições: ${fatos}. Especificidades: ${pedidos}.`,
+    notificacao:`Redija uma notificação extrajudicial. Situação: ${fatos}. Partes: ${partes}. Exigência: ${pedidos}.`,
+    parecer:`Elabore um parecer jurídico. Questão: ${fatos}. Contexto: ${partes}. Foco: ${pedidos}.`,
+    acordo:`Redija minuta de acordo. Contexto: ${fatos}. Partes: ${partes}. Termos: ${pedidos}.`,
+    habeas:`Redija o instrumento constitucional cabível. Situação: ${fatos}. Partes: ${partes}. Pedido: ${pedidos}.`,
+    embargo:`Redija embargos/impugnação. Decisão embargada: ${fatos}. Partes: ${partes}. Pontos: ${pedidos}.`
+  };
+
+  await callAI(SYSTEM_JURIDICO, prompts[currentTool] || prompts.peticao, 'red-output-text');
+  showToast('Peça gerada com sucesso!','success');
+}
+
+/* ──────────── ANÁLISE ──────────── */
+async function runAnalise(){
+  const texto = document.getElementById('analise-input')?.value || '';
+  const foco = document.getElementById('analise-foco')?.value || '';
+
+  if(!texto.trim()){
+    showToast('Cole um texto para análise.','error');
+    return;
+  }
+
+  const prompts = {
+    resumo_proc:`Resumo executivo. ${foco ? 'Foco: ' + foco + '.' : ''}\n\nTexto:\n${texto}`,
+    resumo_doc:`Análise de documento. ${foco ? 'Foco: ' + foco + '.' : ''}\n\nDocumento:\n${texto}`,
+    risco:`Análise de risco processual. ${foco ? 'Foco: ' + foco + '.' : ''}\n\nCaso:\n${texto}`,
+    clausulas:`Identifique cláusulas problemáticas. ${foco ? 'Foco: ' + foco + '.' : ''}\n\nTexto:\n${texto}`
+  };
+
+  await callAI(SYSTEM_JURIDICO, prompts[currentAnalise], 'analise-output-text');
+  showToast('Análise concluída!','success');
+}
+
+/* ──────────── ARGUMENTOS ──────────── */
+async function runArgumentos(){
+  const area = document.getElementById('arg-area')?.value || '';
+  const posicao = document.getElementById('arg-posicao')?.value || '';
+  const caso = document.getElementById('arg-caso')?.value || '';
+
+  if(!caso.trim()){
+    showToast('Descreva o caso.','error');
+    return;
+  }
+
+  const prompts = {
+    favoraveis:`Como advogado ${posicao} na área de ${area}, liste os melhores argumentos favoráveis:\n\n${caso}`,
+    contra:`Como advogado ${posicao} na área de ${area}, antecipe os argumentos contrários e responda:\n\n${caso}`,
+    jurisprudencia:`Pesquise a jurisprudência mais relevante para o caso:\n\n${caso}`,
+    preliminares:`Identifique preliminares processuais cabíveis:\n\n${caso}`
+  };
+
+  await callAI(SYSTEM_JURIDICO, prompts[currentArg], 'arg-output-text');
+  showToast('Argumentos gerados!','success');
+}
+
+/* ──────────── PESQUISA ──────────── */
+async function runPesquisa(){
+  const tema = document.getElementById('pesquisa-input')?.value || '';
+  const tribunal = document.getElementById('pesquisa-tribunal')?.value || '';
+
+  if(!tema.trim()){
+    showToast('Digite um tema de pesquisa.','error');
+    return;
+  }
+
+  const prompts = {
+    jurisprudencia_stj:`Pesquise a jurisprudência mais importante sobre: "${tema}". ${tribunal ? 'Tribunais: ' + tribunal + '.' : ''}`,
+    legislacao:`Apresente a legislação aplicável ao tema: "${tema}". ${tribunal ? 'Jurisdição: ' + tribunal + '.' : ''}`,
+    doutrina:`Apresente o posicionamento doutrinário dominante sobre: "${tema}". ${tribunal ? 'Contexto: ' + tribunal + '.' : ''}`,
+    prazo_prescricao:`Analise os prazos aplicáveis ao tema: "${tema}". ${tribunal ? 'Tribunal: ' + tribunal + '.' : ''}`
+  };
+
+  await callAI(SYSTEM_JURIDICO, prompts[currentPesquisa], 'pesquisa-output-text');
+  showToast('Pesquisa concluída!','success');
+}
+
+/* ──────────── CHAT ──────────── */
+const chatHistory = [];
+
+async function sendChat(){
+  const inp = document.getElementById('chat-input');
+  const msg = inp?.value.trim();
+
+  if(!msg) return;
+
+  inp.value = '';
+  const msgs = document.getElementById('chat-messages');
+  if(!msgs) return;
+
+  msgs.innerHTML += `
+    <div class="chat-msg user">
+      <div class="chat-avatar user">L</div>
+      <div class="chat-bubble">${msg}</div>
+    </div>
+  `;
+
+  const thinking = document.createElement('div');
+  thinking.className = 'chat-msg';
+  thinking.innerHTML = `
+    <div class="chat-avatar ai">L</div>
+    <div class="chat-bubble thinking">
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  msgs.appendChild(thinking);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  chatHistory.push({role:'user', content:msg});
+
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  const texto = msg.toLowerCase();
+  let resposta = '';
+
+  if (texto.includes('divórcio') || texto.includes('divorcio')) {
+    resposta = `Em casos de divórcio, normalmente analisa-se:
+
+• regime de bens
+• guarda dos filhos
+• alimentos
+• partilha patrimonial
+• eventual uso de imóvel comum
+
+⚠️ Resposta simulada para demonstração do protótipo.`;
+  } else if (texto.includes('trabalhista')) {
+    resposta = `Em matéria trabalhista, os principais pontos costumam ser:
+
+• vínculo empregatício
+• horas extras
+• verbas rescisórias
+• FGTS
+• adicional e eventuais nulidades
+
+⚠️ Resposta ilustrativa do protótipo.`;
+  } else if (texto.includes('contrato')) {
+    resposta = `Na análise contratual, os pontos principais são:
+
+• objeto do contrato
+• obrigações das partes
+• multa e penalidades
+• cláusula de rescisão
+• prazo
+• foro competente
+
+⚠️ Resposta simulada para protótipo.`;
+  } else if (texto.includes('crime') || texto.includes('penal')) {
+    resposta = `Em um cenário penal, normalmente verifica-se:
+
+• tipificação da conduta
+• materialidade
+• autoria
+• nulidades processuais
+• estratégia defensiva
+
+⚠️ Esta resposta é apenas demonstrativa.`;
+  } else {
+    resposta = `Entendi sua dúvida jurídica.
+
+Como protótipo, este assistente pode simular análises sobre:
+• contratos
+• direito de família
+• trabalhista
+• penal
+• peças processuais
+• resumos e argumentos
+
+⚠️ Resposta gerada em modo demonstração.`;
+  }
+
+  chatHistory.push({role:'assistant', content:resposta});
+
+  thinking.remove();
+  msgs.innerHTML += `
+    <div class="chat-msg">
+      <div class="chat-avatar ai">L</div>
+      <div class="chat-bubble">${resposta.replace(/\n/g,'<br>')}</div>
+    </div>
+  `;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+/* ──────────── UTILS ──────────── */
+function copyOutput(id){
+  const el = document.getElementById(id);
+  const t = el ? el.textContent : '';
+  if(!t){
+    showToast('Nada para copiar.','error');
+    return;
+  }
+
+  navigator.clipboard.writeText(t)
+    .then(()=>showToast('Texto copiado!','success'))
+    .catch(()=>showToast('Erro ao copiar.','error'));
+}
+
+function downloadText(id, filename){
+  const el = document.getElementById(id);
+  const t = el ? el.textContent : '';
+  if(!t){
+    showToast('Nada para baixar.','error');
+    return;
+  }
+
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(t);
+  a.download = filename;
+  a.click();
+  showToast('Download iniciado!','success');
+}
+
+/* ──────────── CALENDAR ──────────── */
+function buildCalendar(){
+  const cal = document.getElementById('calendar');
+  if(!cal || cal.children.length > 0) return;
+
+  const events = [16,18,22,25,28];
+  const firstDay = 6;
+  const days = 31;
+
+  for(let i=0; i<firstDay; i++) cal.innerHTML += '<div></div>';
+
+  for(let d=1; d<=days; d++){
+    const cls = d===14 ? 'today' : events.includes(d) ? 'event' : '';
+    cal.innerHTML += `<div class="cal-day ${cls}">${d}</div>`;
+  }
+}
+
+/* ──────────── CHARTS ──────────── */
+function buildCharts(){
+  const bar = document.getElementById('chart-bar');
+  if(!bar || bar.children.length > 0) return;
+
+  const data = [
+    {m:'Out',v:4},
+    {m:'Nov',v:6},
+    {m:'Dez',v:3},
+    {m:'Jan',v:5},
+    {m:'Fev',v:7},
+    {m:'Mar',v:5}
+  ];
+
+  const max = Math.max(...data.map(d=>d.v));
+  const colors = ['#8A7040','#8A7040','#8A7040','#B8975A','#C4A35A','#D4B580'];
+  const labels = document.getElementById('chart-labels');
+
+  data.forEach((d,i)=>{
+    const h = Math.round((d.v/max)*100);
+    bar.innerHTML += `<div class="chart-bar" style="height:${h}%;background:${colors[i]};min-height:12px" title="${d.v} processos"></div>`;
+    if(labels){
+      labels.innerHTML += `<div class="chart-bar-label" style="flex:1;font-size:10px;color:var(--text-muted);text-align:center">${d.m}<br><strong style="color:var(--text)">${d.v}</strong></div>`;
+    }
+  });
+
+  const area = document.getElementById('chart-area');
+  if(!area) return;
+
+  const areas = [
+    {l:'Trabalhista',v:38,c:'#4A8C5C'},
+    {l:'Cível',v:24,c:'#B8975A'},
+    {l:'Consumidor',v:20,c:'#2A5C8C'},
+    {l:'Empresarial',v:12,c:'#8C3A3A'},
+    {l:'Família',v:6,c:'#7A6AAE'}
+  ];
+
+  area.innerHTML = '';
+  areas.forEach(a=>{
+    area.innerHTML += `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px">
+          <span>${a.l}</span><span>${a.v}%</span>
+        </div>
+        <div class="progress">
+          <div class="progress-fill" style="width:${a.v}%;background:${a.c}"></div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+/* ──────────── INIT ──────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  showPage('dashboard', null);
+});
+</script>
